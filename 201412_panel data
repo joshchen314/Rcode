@@ -1,0 +1,67 @@
+rm(list=ls())
+
+library(plm)
+library(zoo)
+library(lmtest)
+library(nlme)
+###################################################
+### importing data and cooking it
+###################################################
+temp1=read.csv("G://SAS_DATA//A1_9994_CK.csv")
+myData1= plm.data(temp1, index = c("state", "year"))
+head(myData1)
+
+(1)
+y_icm=myData1[,3]   ### to test hetersokedaticity 
+x1_age=myData1[,4]
+x2_edu=myData1[,5]
+x4_pr=myData1[,6]
+x5_lnd=myData1[,7]
+x6_pl=myData1[,8]
+
+(2)
+Lhs= names(myData1)[3]
+Rhs= paste(names(myData1)[4:8],collapse="+")
+myEq=paste(Lhs, Rhs, sep="~")  ### regression equation: Lhs ~ Rhs
+myFormula=as.formula(myEq)
+myFormula
+###################################################
+### Fixed & Random Effects by GLS
+###################################################
+gsp_pool = plm(myFormula, data = myData1, model = "pooling")
+summary(gsp_pool)
+gsp_fe=plm(myFormula, data = myData1, model = "within")
+summary(gsp_fe)
+gsp_re = plm(myFormula, data = myData1, model = "random", random.method = "swar")
+summary(gsp_re)
+
+###################################################
+### Chapter 5. tests
+###################################################
+### 1. Testing for Serial Correlation
+pbgtest(gsp_pool)
+library(car)
+pwartest(gsp_fe)
+pdwtest(gsp_re)
+
+### 2. Testing hetersokedaticity
+bptest(myFormula, data = myData1, studentize=F)
+bptest(y_icm~x1_age+x2_edu+x4_pr+x5_lnd+x6_pl, data = myData1, studentize=F)
+
+### 3. LM test
+plmtest(gsp_pool,effect="individual",type="bp")
+plmtest(gsp_fe,effect="individual",type="bp")
+plmtest(gsp_re,effect="individual",type="bp")
+
+### 4. Hausman Test
+phtest(gsp_re, gsp_fe)
+
+
+########################################
+##### Section 2: Robust covariance #####
+########################################
+library(sandwich)
+library(lmtest)
+coeftest(gsp_pool, vcov= vcovSCC)
+coeftest(gsp_fe, vcov= vcovSCC)  ### Non-param
+coeftest(gsp_re, vcov= vcovSCC)  ### Non-param
